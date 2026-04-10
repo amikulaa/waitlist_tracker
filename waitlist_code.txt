@@ -1,0 +1,410 @@
+/**
+ * WAITLIST TABLE for STAFF APPROVAL
+ * Waitlist Management Table
+ *
+ * USAGE: [VALUE_HIDDEN_FOR_SECURITY]
+ */
+if (!defined('WAITLIST_FORM_ID')) {
+    define('WAITLIST_FORM_ID', VALUE_HIDDEN_FOR_SECURITY);
+}
+if (!defined('FIELD_KEY_EVENT_POST')) {
+    define('FIELD_KEY_EVENT_POST', 'VALUE_HIDDEN_FOR_SECURITY');
+}
+if (!defined('FIELD_ID_OFF_WAITLIST')) {
+    define('FIELD_ID_OFF_WAITLIST', VALUE_HIDDEN_FOR_SECURITY);
+}
+if (!defined('FIELD_ID_FNAME')) {
+    define('FIELD_ID_FNAME', VALUE_HIDDEN_FOR_SECURITY);
+}
+if (!defined('FIELD_ID_LNAME')) {
+    define('FIELD_ID_LNAME', VALUE_HIDDEN_FOR_SECURITY);
+}
+if (!defined('FIELD_ID_EMAIL')) {
+    define('FIELD_ID_EMAIL', VALUE_HIDDEN_FOR_SECURITY);
+}
+if (!defined('FIELD_ID_MODE')) {
+    define('FIELD_ID_MODE', VALUE_HIDDEN_FOR_SECURITY);
+}
+
+add_shortcode('VALUE_HIDDEN_FOR_SECURITY', function () {
+
+    $data = array();
+    $waiting = [];
+    $approved = [];
+    $post_id = isset($_GET['postid']) ? absint($_GET['postid']) : 0;
+
+    if (!isset($post_id) || empty($post_id)) {
+        return '';
+    }
+
+    $entries = FrmEntry::getAll([
+		'form_id' => WAITLIST_FORM_ID,
+		'is_draft' => 0
+	]);
+	
+    if (empty($entries)) {
+        return '<p>No waitlist entries found.</p>';
+    } else {
+		foreach($entries as $entry){
+			$entry_postid = FrmEntryMeta::get_entry_meta_by_field((int) $entry->id, FIELD_KEY_EVENT_POST);
+			if($entry_postid == $post_id){
+				$data[] = $entry;
+        		$off_waitlist = FrmEntryMeta::get_entry_meta_by_field((int) $entry->id, FIELD_ID_OFF_WAITLIST);
+				if ($off_waitlist == 'True') {
+					$approved[] = $entry;
+				} else {
+					$waiting[] = $entry;
+				}
+			}
+		}
+	}
+		
+	if (empty($data)) {
+        return '<p>No waitlist entries found.</p>';
+    }
+
+    $ajax_url = VALUE_HIDDEN_FOR_SECURITY;
+    $nonce = VALUE_HIDDEN_FOR_SECURITY;
+
+    ob_start();
+	$event_title = get_the_title($post_id) ?? 'No Title Found...';
+	$help_link = "VALUE_HIDDEN_FOR_SECURITY";
+	echo "<a target='_blank' href='$help_link' style='float: right; color: #15256A; font-size: 20px;' title='Help'><i class='fas fa-question-circle'></i></a>";
+	echo "<hr/>";
+	echo "<h3 style='text-align: center;'>$event_title</h3><br>";
+    ?>
+
+<style>
+.waitlist-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.waitlist-table th, .waitlist-table td {
+	border: 1px solid #ddd;
+	padding: 8px;
+	text-align: left;
+}
+
+.waitlist-table th {
+	background: #f7f7f7;
+}
+
+.approved-row-0 {
+	background: #f7f7f7;
+}
+	
+.approved-row-1 {
+	background: #e6f6ea;
+}
+
+.approve-btn {
+	padding: 6px 12px;
+	cursor: pointer;
+}
+</style>
+
+<table class="waitlist-table">
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Email</th>
+			<th>Mode</th>
+			<th>Submitted At (CST/CDT)</th>
+			<th>Submission</th>
+			<th>Status</th>
+		</tr>
+	</thead>
+	<tbody>
+
+    <?php
+usort($waiting, function ($a, $b){
+	//filter by created at: newest first
+	return strtotime($b->created_at) - strtotime($a->created_at);
+});
+foreach ($waiting as $entry) :
+        $entry_id = (int) $entry->id;
+        $fname = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_FNAME);
+        $lname = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_LNAME);
+		$fullname = $fname . ' ' . $lname;
+        $email = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_EMAIL);
+        $mode = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_MODE);
+		$entry_link = "HIDDEN FOR SECURITY" . $entry_id;
+		$entry_link_output = "<a target='_blank' href='$entry_link'><i class='fas fa-external-link-alt'></i></a>";
+        $timestamp = strtotime($entry->created_at . ' UTC');
+        $created = wp_date('M j, Y g:i A', $timestamp);
+	
+        ?>
+      <tr>
+			<td><?php echo esc_html((string) $fullname); ?></td>
+			<td><?php echo esc_html((string) $email); ?></td>
+			<td><?php echo esc_html($mode); ?></td>
+			<td><?php echo esc_html($created); ?></td>
+			<td><?php echo $entry_link_output; ?></td>
+			<td>
+				<button class="approve-btn"
+					data-entry="<?php echo esc_attr($entry_id); ?>">Approve</button>
+			</td>
+		</tr>
+    <?php endforeach; ?>
+
+    <?php
+usort($approved, function ($a, $b){
+	$mode_a = strtolower(trim((string) FrmEntryMeta::get_entry_meta_by_field((int) $a->id, FIELD_ID_MODE)));
+	$mode_b = strtolower(trim((string) FrmEntryMeta::get_entry_meta_by_field((int) $b->id, FIELD_ID_MODE)));
+	//first filter by mode: in person first
+	if($mode_a !== $mode_b){
+		return ($mode_a === 'VALUE_HIDDEN_FOR_SECURITY') ? -1 : 1;
+	}
+	//second filter by created at: newest first
+	return strtotime($b->created_at) - strtotime($a->created_at);
+});
+foreach ($approved as $entry) :
+        $entry_id = (int) $entry->id;
+        $fname = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_FNAME);
+        $lname = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_LNAME);
+		$fullname = $fname . ' ' . $lname;
+        $email = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_EMAIL);
+        $mode = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_MODE);
+		$entry_link = "VALUE_HIDDEN_FOR_SECURITY" . $entry_id;
+		$entry_link_output = "<a target='_blank' href='$entry_link'><i class='fas fa-external-link-alt'></i></a>";
+        $timestamp = strtotime($entry->created_at . ' UTC');
+        $created = wp_date('M j, Y g:i A', $timestamp);
+	    $mode_id = $mode == 'In person' ? '1' : '0';
+	    $class_mode = "approved-row-" . $mode_id;
+        ?>
+      <tr class=<?php echo esc_html((string) $class_mode); ?>>
+			<td><?php echo esc_html((string) $fullname); ?></td>
+			<td><?php echo esc_html((string) $email); ?></td>
+			<td><?php echo esc_html($mode); ?></td>
+			<td><?php echo esc_html($created); ?></td>
+			<td><?php echo $entry_link_output; ?></td>
+			<td>Approved</td>
+		</tr>
+    <?php endforeach; ?>
+
+    </tbody>
+</table>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    const buttons = document.querySelectorAll('.approve-btn');
+
+    buttons.forEach(button => {
+
+      button.addEventListener('click', async function () {
+
+        if (!confirm('Approve this participant?')) {
+          return;
+        }
+
+        const entryId = this.dataset.entry;
+
+        const response = await fetch('<?php echo esc_url($ajax_url); ?>', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: new URLSearchParams({
+            action: 'approve_waitlist',
+            entry_id: entryId,
+            nonce: '<?php echo esc_js($nonce); ?>'
+          })
+        });
+
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          alert('Something went wrong.');
+        }
+
+      });
+
+    });
+
+  });
+  </script>
+
+<?php
+    return ob_get_clean();
+});
+
+//ajax handle button approve submission
+add_action('VALUE_HIDDEN_FOR_SECURITY', function () {
+
+    check_ajax_referer('VALUE_HIDDEN_FOR_SECURITY', 'nonce');
+
+    $entry_id = isset($_POST['entry_id']) ? absint($_POST['entry_id']) : 0;
+    if (!$entry_id) {
+        wp_send_json_error('Invalid entry', 400);
+    }
+
+    // Only update if not already approved
+    $current_value = FrmEntryMeta::get_entry_meta_by_field($entry_id, FIELD_ID_OFF_WAITLIST);
+
+    if ($current_value == 'False') {
+        FrmEntryMeta::update_entry_meta($entry_id, FIELD_ID_OFF_WAITLIST, null, 'True');
+		push_custom_approval($entry_id);
+    }
+
+    wp_send_json_success();
+});
+
+/**
+ * Custom API function to process a TRUE waitlist entry
+ * and push the data into VALUE_HIDDEN_FOR_SECURITY.
+ *
+ * @param int $entry_id VALUE_HIDDEN_FOR_SECURITY
+ */
+function push_custom_approval(int $entry_id){
+    //replace with waitlist field ids
+    $field_id_off_waitlist = VALUE_HIDDEN_FOR_SECURITY;
+    $form_44_id = VALUE_HIDDEN_FOR_SECURITY;
+
+    //get the waitlist entry
+    $entry = FrmEntry::getOne($entry_id);
+    if (!$entry) {
+        error_log("Waitlist API: Entry ID $entry_id not found.");
+        return;
+    }
+
+    //check that off_waitlist is true
+    $off_waitlist = FrmEntryMeta::get_entry_meta_by_field($entry_id, $field_id_off_waitlist);
+    if ($off_waitlist !== 'True') {
+        return;
+    }
+
+    //prepare data to push into Form 44
+    $data_for_44 = [];
+
+    //map the field ids from 162 => 44
+    $field_mapping = [
+        MAP VALUES _HIDDEN_FOR_SECURITY
+    ];
+
+    foreach ($field_mapping as $waitlist_field => $form44_field) {
+        $value = FrmEntryMeta::get_entry_meta_by_field($entry_id, $waitlist_field);
+        $data_for_44[$form44_field] = $value;
+    }
+
+    //create new entry in Form 44 via Formidable API
+    $new_entry_id = FrmEntry::create([
+        'form_id' => $form_44_id,
+        'item_meta' => $data_for_44
+    ]);
+
+	//debugging information
+	if ($new_entry_id) {
+		error_log("Waitlist API: Successfully added entry $entry_id into Form 44 as $new_entry_id.");
+	} else {
+		error_log("Waitlist API: Failed to add entry $entry_id into Form 44.");
+	}
+}
+
+/**
+ * WAITLIST OVERVIEW TABLE
+ */
+add_shortcode('VALUE_HIDDEN_FOR_SECURITY', function () {
+    global $wpdb;
+    $reg_form_id = VALUE_HIDDEN_FOR_SECURITY;
+    $reg_post_id_field_id = VALUE_HIDDEN_FOR_SECURITY;
+    $reg_mode_field_id = VALUE_HIDDEN_FOR_SECURITY;
+	
+    $waitlist_form_id = VALUE_HIDDEN_FOR_SECURITY;
+    $waitlist_post_id_field_id = VALUE_HIDDEN_FOR_SECURITY;
+    $waitlist_mode_field_id = VALUE_HIDDEN_FOR_SECURITY;
+    $waitlist_off_waitlist_field_id = VALUE_HIDDEN_FOR_SECURITY;
+	
+    $postsx = get_posts([
+        'numberposts' => - 1,
+        'post_type' => 'VALUE_HIDDEN_FOR_SECURITY',
+        'meta_key' => 'VALUE_HIDDEN_FOR_SECURITY',
+        'orderby' => 'VALUE_HIDDEN_FOR_SECURITY',
+        'order' => 'VALUE_HIDDEN_FOR_SECURITY'
+    ]);
+
+    if (empty($postsx) || ! is_array($postsx)) {
+        return '';
+    }
+
+    $now = strtotime(date('Y-m-d'));
+    $output = "<br>";
+    $output .= '<table class="event-capacity-table">';
+    $output .= '<thead><tr>
+	<th>Start Date</th>
+	<th>Workshop Title</th>
+	<th>Capacity</th>
+	<th>Registrations</th>
+	<th>Waitlisted</th>
+	</tr></thead><tbody>';
+
+    foreach ($postsx as $post) {
+        $program_code = get_field("VALUE_HIDDEN_FOR_SECURITY", $post->ID);
+        if (!empty($program_code) && preg_match("/^W/", $program_code)) {
+            $end = strtotime(get_post_meta($post->ID, 'VALUE_HIDDEN_FOR_SECURITY', true));
+            $start = get_post_meta($post->ID, '_event_start_date', true);
+			//end + month to match dropdown of events on this staff page
+            if ($now < $end + 2629800) {
+				$capacity_limit = get_post_meta($post->ID, 'capacity_limit', true);
+				if(!isset($capacity_limit) || empty($capacity_limit)){
+					$capacity_limit = VALUE_HIDDEN_FOR_SECURITY;
+				}
+                $count = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(DISTINCT i.id)
+            			FROM {$wpdb->prefix}frm_items i
+            			INNER JOIN {$wpdb->prefix}frm_item_metas m_event
+              				ON i.id = m_event.item_id
+            			INNER JOIN {$wpdb->prefix}frm_item_metas m_attendance
+              				ON i.id = m_attendance.item_id
+            			WHERE i.form_id = %d
+            			AND i.is_draft = 0
+            			AND m_event.field_id = %d
+            			AND m_event.meta_value = %d
+            			AND m_attendance.field_id = %d
+            			AND m_attendance.meta_value = %s", 
+						$reg_form_id, $reg_post_id_field_id, $post->ID, $reg_mode_field_id, 'In person'));
+				$waitlist_count = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(DISTINCT i.id)
+            			FROM {$wpdb->prefix}frm_items i
+            			INNER JOIN {$wpdb->prefix}frm_item_metas m_event
+              				ON i.id = m_event.item_id
+            			INNER JOIN {$wpdb->prefix}frm_item_metas m_attendance
+              				ON i.id = m_attendance.item_id
+            			INNER JOIN {$wpdb->prefix}frm_item_metas off_waitlist
+              				ON i.id = off_waitlist.item_id
+            			WHERE i.form_id = %d
+            			AND i.is_draft = 0
+            			AND m_event.field_id = %d
+            			AND m_event.meta_value = %d
+            			AND m_attendance.field_id = %d
+            			AND m_attendance.meta_value = %s
+            			AND off_waitlist.field_id = %d
+            			AND off_waitlist.meta_value = %s", 
+						$waitlist_form_id, $waitlist_post_id_field_id, $post->ID, $waitlist_mode_field_id, 'In person', $waitlist_off_waitlist_field_id, 'False'));
+                $output .= '<tr>';
+                $output .= '<td style="width: 150px;">' . esc_html($start) . '</td>';
+				$link = "HIDDEN FOR SECURITY" . $post->ID;
+                $output .= '<td style="width: 600px;"><a target="_blank" href=' . $link . '>' . esc_html($post->post_title) . '</a></td>';
+                $output .= '<td>' . intval($capacity_limit) . '</td>';
+				if(intval($count) >= intval($capacity_limit)){
+                	$output .= '<td style="background-color: #FDDC5C;">' . intval($count) . '</td>';
+				} else {
+                	$output .= '<td>' . intval($count) . '</td>';
+				}
+				if(intval($waitlist_count) > 0){
+                	$output .= '<td style="background-color: #DDFFDD;">' . intval($waitlist_count) . '</td>';
+				} else {
+                	$output .= '<td>' . intval($waitlist_count) . '</td>';
+				}
+                $output .= '</tr>';
+            }
+        }
+    }
+
+    $output .= '</tbody></table>';
+
+    return $output;
+});
